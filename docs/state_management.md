@@ -1,28 +1,28 @@
-# State Lifecycle: El "Roundtrip"
+# State Management: The "Roundtrip" Lifecycle
 
-El concepto de "Ida y Vuelta" introduce un paradigma donde el Desktop ya no trata a las dimensiones de pantalla como estáticas, sino como contenedores descartables efímeros para aplicaciones Fullscreen.
+The "Roundtrip" concept introduces a paradigm where the Desktop dimension is no longer static—workspaces are treated as disposable, ephemeral containers for fullscreen applications.
 
-A continuación se detalla la coreografía de estados, coordinada entre el `windowTracker.js` y el patrón de memoria `stateRegistry.js`.
+Below is the state choreography coordinated between `windowTracker.js` and the `stateRegistry.js` vault.
 
-## Estados de Transición
+## Transition States
 
-### Fase A: Intercepción (Pre-Maximización)
-El motor principal basa su lógica en la observación pasiva. El usuario decide que necesita concentración plena e invoca una orden de "Maximizar" (haciendo click en el icono cuadrado o mediante atajo de teclado nativo).
-1. El Sistema Operativo (Mutter X11/Wayland) informa del inicio de mutación del estado Meta mediante el evento emitido `size-changed`.
-2. El `windowTracker.js` intercepta esta llamada en tiempo real *antes* de que ocurra la transición visual, inmoviliza la capa y extrae el identificador Meta único de la ventana.
-3. Solicita a `windowGeometry.js` que salve las coordenadas espaciales `(X, Y, Ancho, Alto, WorkspaceActual, Monitor)` en una estructura inmutable llamada `RoundtripState`.
-4. El registro inmutable es anexado al Singleton `stateRegistry.js`, asegurando un historial histórico individual por cada PID maximizado.
+### Phase A: Interception (Pre-Maximization)
+The core engine relies on passive observation. When the user requests a "Maximize" operation (via icon clicking or keyboard shortcuts):
+1. The OS (Mutter X11/Wayland) signals the start of the Meta state mutation via the `size-changed` event.
+2. `windowTracker.js` intercepts this in real-time *before* the visual transition executes, freezes the layer, and strips the unique Meta window ID.
+3. It asks `windowGeometry.js` to save the spatial coordinates `(X, Y, Width, Height, CurrentWorkspace, Monitor)` into an immutable `RoundtripState` structure.
+4. The immutable log is appended to the `stateRegistry.js` Singleton, ensuring historical persistence.
 
-### Fase B: Dispersión (Nacimiento de Workspaces Temporales)
-Tras salvar un backup de la geometría real de la aplicación, es imperativo despejar el área del origin:
-1. El coordinador emite una orden sincrónica al `workspaceManager.js` para pedirle al gestor nativo de GNOME (`global.workspace_manager`) que instancie la creación de una dimensión enteramente nueva y vacía, apilada al final del *Array* virtual.
-2. Inmediatamente terminada la instancia, el `windowTracker.js` ordena la translocación de la Meta Window desde su hogar natal (Workspace 0) directo hacia este nuevo Workspace Temporal. 
-3. *Resultado Visual:* El usuario experimentará la fluida transición de deslizamiento propia del entorno de GNOME hacia un cuarto virtual liso con la nueva aplicación en Fullscreen.
+### Phase B: Dispersion (Birth of Temporary Workspaces)
+After securing a strict backup of the application's geometry, the engine dictates clearing the origin area:
+1. The coordinator emits a synchronous command to `workspaceManager.js` to query GNOME’s native manager (`global.workspace_manager`), spawning an entirely new, empty dimension at the end of the workspace array.
+2. Instantly, `windowTracker.js` orders the translocation of the Meta Window from its native home (Workspace 0) straight to this new index.
+3. *Visual Result:* The user experiences the fluid GNOME sliding transition into a blank room alongside the newly maximized app.
 
-### Fase C: Recolección y Retorno
-El usuario finaliza la edición de su documento/película en la caja virtual y solicita el cierre o la des-maximización nativa:
-1. El evento es interceptado inversamente. `windowTracker.js` nota una contracción del flag de `Maximized`.
-2. Consulta asíncronamente a `stateRegistry.js`: *"¿Tenemos un vuelo registrado para esta ID de ventana?"*.
-3. Si lo existe, inmediatamente arranca el motor del Roundtrip: El manejador transloca automáticamente la caja desde su dimensión vacía superior de vuelta al índice nativo inicial (usualmente Workspace 0).
-4. El sistema inyecta en su `Meta.Window.move_frame` estricto las coordenadas (X, Y) originarias guardadas previamente.
-5. El *Garbage Collector* o Barrendero Asíncrono (`workspaceCleanup.js`) vigila y tras un retraso tolerante de 350 milisegundos destruye la dimensión efímera vacía para no estorbar el esquema del usuario.
+### Phase C: Collection and Return (Roundtrip)
+When the user finishes their work and requests a close or un-maximize command:
+1. The event is caught inversely. `windowTracker.js` notices a state contraction of the `Maximized` flag.
+2. It asynchronously checks `stateRegistry.js`: *"Do we have a flight recorded for this window ID?"*.
+3. If true, the engine forcefully kicks the window box back into its native origin index (usually Workspace 0).
+4. The system injects the strict original `(X, Y)` coordinates into the native `Meta.Window.move_frame` method.
+5. The asynchronous Garbage Collector (`workspaceCleanup.js`) watches quietly. After a 350-millisecond tolerance delay, it destroys the empty ephemeral dimension to prevent clutter.

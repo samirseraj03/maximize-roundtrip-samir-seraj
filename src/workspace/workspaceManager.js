@@ -32,6 +32,15 @@ import {
 
 import { cleanupWorkspace } from './workspaceCleanup.js';
 
+/**
+ * Primary action to execute Phase B (Dispersion) of the Roundtrip ecosystem.
+ * Appends a new workspace to Mutter and commands the window to translocate into it.
+ * @param {Meta.Window} win - The subject application.
+ * @param {Object} state - Information repository tied to the window.
+ * @param {Object} policy - Current environment restrictions instance.
+ * @param {function} log - Console debugger.
+ * @param {Object} options - Instruction modifiers (`follow` boolean overrides focus and animation tracking).
+ */
 export function sendToTempWorkspace(win, state, policy, log, options = {}) {
     const { follow = true, focus = true } = options;
 
@@ -87,6 +96,15 @@ export function sendToTempWorkspace(win, state, policy, log, options = {}) {
     }
 }
 
+/**
+ * Inverse primary action to execute Phase C (Collection) of the Roundtrip ecosystem.
+ * Retracts the window natively from its ephemeral workspace back into the origin fixed dimension.
+ * @param {Meta.Window} win - Bounded application.
+ * @param {Object} state - Window constraints vault.
+ * @param {Object} policy - Dimension limits API.
+ * @param {boolean} fromClose - Determines if the return trip was spawned due to an application dying.
+ * @param {function} log - Debugger.
+ */
 export function restoreToOrigin(win, state, policy, fromClose, log) {
     if (!state.moved || state.inFlight)
         return;
@@ -132,6 +150,14 @@ export function restoreToOrigin(win, state, policy, fromClose, log) {
     }
 }
 
+/**
+ * Executes a specific variant of Phase C exclusively built for restoring windows
+ * attempting to minimize while stuck in an active Roundtrip state.
+ * @param {Meta.Window} win - Bounded application.
+ * @param {Object} state - Constraints repository.
+ * @param {Object} policy - Dimension bounds mapping.
+ * @param {function} log - Console debugger.
+ */
 export function restoreToOriginMinimized(win, state, policy, log) {
     if (!state.moved || state.inFlight)
         return;
@@ -170,6 +196,13 @@ export function restoreToOriginMinimized(win, state, policy, log) {
     }
 }
 
+/**
+ * Mounts standard timeouts clearing runtime memories and evaluating the ephemeral
+ * workspace for deletion (Garbage Collection) after normal roundtrip maneuvers.
+ * @param {Object} state - Central properties mapping.
+ * @param {Object} policy - Core workspace rules.
+ * @param {function} log - Standard log sink.
+ */
 export function cleanupAfterRestore(state, policy, log) {
     const tempWorkspace = state.tempWorkspace;
 
@@ -189,6 +222,14 @@ export function cleanupAfterRestore(state, policy, log) {
     );
 }
 
+/**
+ * Enforces hygiene boundaries when the extension is toggled on inside a lively system.
+ * Scans for already-maximized applications bleeding into fixed workspaces and evicts them immediately.
+ * @param {Map} windowSignals - Dictionary dictating tracked sessions.
+ * @param {Map} states - Core location tracking maps.
+ * @param {Object} policy - Bounds configuration mapping.
+ * @param {function} log - Console log stream.
+ */
 export function normalizeFixedWorkspaceRoundtripWindows(windowSignals, states, policy, log) {
     policy.ensureFixedWorkspaces();
 
@@ -220,6 +261,14 @@ export function normalizeFixedWorkspaceRoundtripWindows(windowSignals, states, p
     }
 }
 
+/**
+ * Guards ephemeral workspaces from rogue popup windows opening inside them by redirecting
+ * unrecognized Meta constructs back onto the Origin fixed root index automatically.
+ * @param {Meta.Window} win - Intruding native actor.
+ * @param {Map} states - Environment tracking logs.
+ * @param {Object} policy - Root bound limitations.
+ * @param {function} log - Debugging.
+ */
 export function redirectNewWindowToFixedWorkspace(win, states, policy, log) {
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, REDIRECT_DELAY_MS, () => {
         try {
@@ -247,6 +296,10 @@ export function redirectNewWindowToFixedWorkspace(win, states, policy, log) {
 export { schedulePendingGeometryRestore };
 
 
+/**
+ * Private abstraction interrogating policy bounds to derive a hard fallback string map.
+ * @private
+ */
 function _resolveOriginWorkspace(state, policy) {
     if (state.originWorkspace && policy.isFixedWorkspace(state.originWorkspace))
         return state.originWorkspace;
@@ -254,6 +307,10 @@ function _resolveOriginWorkspace(state, policy) {
     return policy.getDefaultOriginWorkspace();
 }
 
+/**
+ * Purges maximization and fullscreen logical constraints from native Mutter actors smoothly.
+ * @private
+ */
 function _attemptExitRoundtripState(win) {
     try {
         if (win.fullscreen)

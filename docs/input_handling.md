@@ -1,28 +1,28 @@
-# Interceptación de Teclado y Eventos de Entrada Híbrida
+# Keyboard Interception and Hybrid Event Catching
 
-La extensión rescinde del comportamiento clásico de `Alt+Tab` en GNOME Shell para habilitar un selector visual inter-workspaces. La sobreescritura nativa del teclado en gestores de composición modernos (como Wayland) presenta desafíos únicos que la extensión resuelve mediante un diseño de interceptación de entrada **Híbrido No-Modal**.
+The extension rescinds the classic behavior of `Alt+Tab` in GNOME Shell to enable a visual inter-workspace selector. Overwriting the native keyboard compositor behavior on modern displays (like Wayland) presents unique challenges that the extension resolves by utilizing a **Hybrid Non-Modal** interception design.
 
-## ¿Por qué evitar Modal Grabs?
-En arquitecturas previas y extensiones clásicas, secuestrar un atajo global de teclado (como Alt+Tab) dependía de inyectar un *Modal Grab* (ej. `Main.pushModal`). Un Modal Grab exige a Clutter robar absolutamente todo el foco de punteros y teclado enfocando los eventos únicamente en un *Actor* visual específico.
-Bajo protocolos estrictos de Wayland, este método es susceptible a *Race Conditions*:
-- Si un usuario interactúa con su teclado a mayor velocidad que el hilo de renderizado de JS (ej. soltando la tecla modificadora *antes* de que se active el grab).
-- Wayland congelará el estado del puntero y del modificador físico, ocasionando que la interfaz jamás reciba el evento `KeyRelease`. El sistema asume falsamente que el modificador central sigue manteniéndose presionado, congelando irrevocablemente la entrada de la sesión del usuario.
+## Why avoid Modal Grabs?
+In legacy architectures and classic extensions, hijacking a global keyboard shortcut (like Alt+Tab) relied on injecting a *Modal Grab* (e.g., `Main.pushModal`). A Modal Grab commands Clutter to steal absolutely all pointer and keyboard focus events, funneling them strictly into a specific visual *Actor*.
+Under stringent Wayland protocols, this method is fundamentally susceptible to *Race Conditions*:
+- If a user interacts with their keyboard faster than the JS rendering thread (e.g., releasing the modifier key *before* the modal grabs the focus).
+- Wayland will aggressively freeze the pointer and physical modifier states, causing the interface to never receive the `KeyRelease` event. The system falsely assumes the central modifier remains pressed, irrevocably freezing the user session's input layer.
 
-## Solución: Captura Híbrida Asíncrona
+## The Solution: Asynchronous Hybrid Capture
 
-Para eludir bloqueos asíncronos y mantener la fluidez operativa original del sistema, `WorkspaceSelector.js` disocia la presión física de la tecla (`KeyPress`) respecto a su liberación (`KeyRelease`).
+To circumvent asynchronous deadlocks and preserve the original operational fluidity of the system, `WorkspaceSelector.js` dissociates the physical key press (`KeyPress`) from its release (`KeyRelease`).
 
-### 1. Inyección de Atajos (Press)
-En lugar de capturar el teclado crudo, la extensión dialoga directamente con el Window Manager nativo (Mutter) enmascarando las directivas `next-window` y `prev-window`.
-* **Mecanismo:** `Main.wm.addKeybinding()`
-* **Objetivo:** Esto garantiza que el sistema operativo central reconozca de manera segura (y bloquee hacia las aplicaciones debajo) el intento de usar `Alt+Tab` o su reverso. Cada activación cíclica simplemente avanza el puntero MRU de la extensión, dibujando o recargando la interfaz visual pasiva sin robar el teclado base.
+### 1. Shortcut Injection (Press)
+Instead of capturing raw keyboard IO, the extension dialogues directly with the native Window Manager (Mutter) by masking the `next-window` and `prev-window` directives.
+* **Mechanism:** `Main.wm.addKeybinding()`
+* **Objective:** This guarantees that the core OS recognizes (and cleanly blocks downward to applications) the intent to trigger `Alt+Tab` or its reverse. Each cyclic activation simply advances the MRU pointer of the extension, drawing or reloading the passive visual UI without violently stealing baseline keyboard focus.
 
-### 2. Observación de Tela Abierta (Release)
-Saber en qué milisegundo el usuario ha dictaminado su selección interactiva soltando definitivamente la tecla `Alt`/`Super` requiere un "Oído Absoluto" sobre todos los eventos globales sin entorpecerlos:
-* **Mecanismo:** `global.stage.connect('captured-event')`
-* **Objetivo:** Se inyecta un *listener* asíncrono pasivo sobre el lienzo general de GNOME (Stage). Al ser de grado *Captured*, lee la señal cruda antes de ramificarse hacia abajo.
-* Si visualiza que se soltó pertinentemente una tecla clave (`Type === KEY_RELEASE` & No es una tecla de navegación como las Flechas), procesa la mutación asumiendo el "Commit". 
-* **Ventaja:** Como no es Modal, si el usuario decide clickear fuera del entorno o Wayland se des-sincroniza, no existen bloqueos destructivos de E/S. El cursor y las aplicaciones bajo el HUD continúan vivas y recibiendo *event_propagate*.
+### 2. Open Canvas Monitoring (Release)
+Knowing the exact millisecond the user has decreed their interactive selection by finally releasing the `Alt`/`Super` key requires an "Absolute Pitch" across all global events without suffocating them:
+* **Mechanism:** `global.stage.connect('captured-event')`
+* **Objective:** A passive asynchronous listener is injected into the general GNOME canvas (Stage). Being of *Captured* grade, it reads the raw signal before it branches downwards.
+* If it visualizes that a pertinent key was released (`Type === KEY_RELEASE` & not an arrow/navigation key), it processes the mutation assuming a "Commit".
+* **Advantage:** Since it is not Modal, if the user decides to click entirely outside the environment or Wayland desynchronizes, there are no destructive I/O deadlocks. The cursor and the applications beneath the HUD remain alive and receive all `event_propagate` actions freely.
 
-### 3. Temporizador Activo de Seguridad a Nivel Puntero
-Como red de mitigación secundaria (Fallback), un `GLib.timeout_add` consulta cíclicamente (50ms) a `global.get_pointer()` la máscara bit de modificadores del Asiento Virtual, forzando la remoción imperativa del selector visual si los Flags `MOD1_MASK` o `SUPER_MASK` desaparecen del hardware.
+### 3. Pointer-Level Active Security Timer
+As a secondary mitigation net (Fallback loop), a `GLib.timeout_add` cyclically polls (every 50ms) `global.get_pointer()` for the bitmask of modifiers on the Virtual Seat. This forces an imperative removal of the visual selector should the `MOD1_MASK` or `SUPER_MASK` flags disappear natively from the peripheral hardware.

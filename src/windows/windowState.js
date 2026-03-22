@@ -6,6 +6,13 @@ export const TRACKED_TYPES = new Set([
     Meta.WindowType.MODAL_DIALOG,
 ]);
 
+/**
+ * Retrieves or lazily inflates the strict definition properties associated
+ * with an active window reference within the global states map.
+ * @param {Map} states - Global dictionary cache tracking actors.
+ * @param {Meta.Window} win - Core GUI interface pointer assigned by GNOME.
+ * @returns {Object} Extracted mapping holding boolean lifecycle gates and dimensions.
+ */
 export function getState(states, win) {
     if (!states.has(win)) {
         states.set(win, {
@@ -35,6 +42,11 @@ export function getState(states, win) {
     return states.get(win);
 }
 
+/**
+ * Intelligently flushes the state properties of a specified window reference, 
+ * marking its lifecycle footprint as defunct without deleting it completely.
+ * @param {Object} state - A memory mapping tied to a single GUI actor.
+ */
 export function clearRoundtripState(state) {
     state.moved = false;
     state.inFlight = false;
@@ -49,6 +61,12 @@ export function clearRoundtripState(state) {
     state.tempWorkspace = null;
 }
 
+/**
+ * Assesses structural qualifications to determine if an actor should be
+ * subjected to the Roundtrip logic ecosystem. Deflects non-Standard (alerts, modals) elements.
+ * @param {Meta.Window} win - Subject window for qualification.
+ * @returns {boolean} True if the window behaves like a Standard application display.
+ */
 export function isInterestingWindow(win) {
     try {
         if (!TRACKED_TYPES.has(win.get_window_type()))
@@ -63,6 +81,11 @@ export function isInterestingWindow(win) {
     }
 }
 
+/**
+ * Determines whether a window falls geometrically into the boundaries of being "Maximized" or "Fullscreen".
+ * @param {Meta.Window} win - Target inspection layer.
+ * @returns {boolean} True if it is currently in a maximum screen consumption state.
+ */
 export function isRoundtripState(win) {
     try {
         return (win.maximized_horizontally && win.maximized_vertically) || win.fullscreen;
@@ -71,6 +94,12 @@ export function isRoundtripState(win) {
     }
 }
 
+/**
+ * Mutates the central state to lock in dimensional measurements (Width, Height, X, Y)
+ * prior to executing a Roundtrip mutation. Ensures return vectors exist.
+ * @param {Meta.Window} win - Actor requesting layout injection.
+ * @param {Object} state - Tracking interface registry reference.
+ */
 export function rememberNormalGeometry(win, state) {
     try {
         if (!win || win.minimized)

@@ -7,6 +7,10 @@ import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { isInterestingWindow } from '../windows/windowState.js';
 
+/**
+ * Class managing the creation, presentation, and destruction of the lateral dock
+ * indicating which applications are currently hidden/minimized on the origin workspace.
+ */
 export class MinimizedIndicator {
     constructor(settings, log) {
         this._settings = settings;
@@ -21,6 +25,10 @@ export class MinimizedIndicator {
         this._box = null;
     }
 
+    /**
+     * Initializes the dock framework, begins scanning for existing windows, and hooks
+     * into global window addition and removal events.
+     */
     enable() {
         if (this._enabled) return;
         this._enabled = true;
@@ -33,6 +41,9 @@ export class MinimizedIndicator {
         this._log('[ui] Indicador de minimizados activado');
     }
 
+    /**
+     * Halts all tracking activities and violently flushes the UI elements from the global stage.
+     */
     disable() {
         if (!this._enabled) return;
         this._enabled = false;
@@ -52,6 +63,11 @@ export class MinimizedIndicator {
         this._log('[ui] Indicador de minimizados desactivado');
     }
 
+    /**
+     * Constructs the Clutter structures (`St.Widget`, `St.BoxLayout`) serving as the left-aligned dock.
+     * Evaluates spatial coordinates using `Clutter.BindConstraint`.
+     * @private
+     */
     _buildUi() {
         this._container = new St.Widget({
             x_expand: false,
@@ -90,6 +106,10 @@ export class MinimizedIndicator {
         Main.uiGroup.add_child(this._container);
     }
 
+    /**
+     * Attaches asynchronous event listeners for Workspace switches layout redraws.
+     * @private
+     */
     _connectSignals() {
         this._signals.push(
             this._settings.connect('changed::show-minimized-indicators', () => this._syncVisibility())
@@ -113,6 +133,11 @@ export class MinimizedIndicator {
         this._signals = [];
     }
 
+    /**
+     * Determines whether the graphical dock should be visually parsed onto the screen.
+     * Relies on the user's GSettings booleans and ensuring they reside on Workspace 0.
+     * @private
+     */
     _syncVisibility() {
         if (!this._container) return;
 
@@ -140,6 +165,12 @@ export class MinimizedIndicator {
         }
     }
 
+    /**
+     * Binds a newly discovered Meta.Window into the minimized observation loop.
+     * Discards invalid actors or uninteresting windows (Pop-ups, OS shells).
+     * @param {Meta.Window} win - The raw GNOME window interface object.
+     * @private
+     */
     _trackWindow(win) {
         if (!win || this._windowSignals.has(win) || !isInterestingWindow(win))
             return;
@@ -161,6 +192,11 @@ export class MinimizedIndicator {
         this._removeIcon(win);
     }
 
+    /**
+     * Invoked when a tracked Meta window modifies its boolean minimized state.
+     * @param {Meta.Window} win - The window attempting the state shift.
+     * @private
+     */
     _onWindowStateChanged(win) {
         let minimized = false;
         try {
@@ -174,6 +210,12 @@ export class MinimizedIndicator {
         }
     }
 
+    /**
+     * Dynamically extrudes an interactive clickable button element containing the scaled
+     * icon of the window, placing it sequentially onto the docking container.
+     * @param {Meta.Window} win - The window targeted for docking representation.
+     * @private
+     */
     _addIcon(win) {
         if (this._icons.has(win) || !this._box) return;
 

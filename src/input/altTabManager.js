@@ -13,6 +13,11 @@ const SWITCH_APPS_BACK_KEY = 'switch-applications-backward';
 const SWITCH_WINDOWS_KEY = 'switch-windows';
 const SWITCH_WINDOWS_BACK_KEY = 'switch-windows-backward';
 
+/**
+ * Controller class designed to securely detach and disable the native GNOME Shell
+ * application switcher (`switch-applications`) keyboard assignments.
+ * Prevents native key-bindings from colliding with the extension's visual Workspace Selector.
+ */
 export class AltTabManager {
     constructor(settings, log) {
         this._settings = settings;
@@ -25,16 +30,27 @@ export class AltTabManager {
         this._origSwitchWinsBack = null;
     }
 
+    /**
+     * Hooks into startup to silence the OS-level Alt+Tab shortcuts immediately.
+     */
     enable() {
         this._disableNativeAltTab();
         this._log('[kbd] Bindings nativos de Alt+Tab desactivados (WorkspaceSelector asume el control)');
     }
 
+    /**
+     * Cleans up custom injection and resurrects the conventional GNOME switcher functionality.
+     */
     disable() {
         this._restoreNativeAltTab();
         this._log('[kbd] Bindings nativos de Alt+Tab restaurados');
     }
 
+    /**
+     * Internally locates `org.gnome.desktop.wm.keybindings` and blanks out the key mapping
+     * arrays while keeping a memory copy of the original user configurations.
+     * @private
+     */
     _disableNativeAltTab() {
         try {
             this._wmKeybindingsSettings = new Gio.Settings({
@@ -56,6 +72,10 @@ export class AltTabManager {
         }
     }
 
+    /**
+     * Reinstalls the memorized arrays of string-based key shortcuts back into the Mutter GSettings registry.
+     * @private
+     */
     _restoreNativeAltTab() {
         if (!this._wmKeybindingsSettings)
             return;

@@ -1,5 +1,9 @@
 import { FIXED_WORKSPACE_COUNT } from '../core/constants.js';
 
+/**
+ * Ruleset engine enforcing the "Static Roots + Dynamic Ephemerals" paradigm.
+ * Instructs other managers on what dimensions are safe, fixed, or temporary.
+ */
 export class WorkspacePolicy {
     constructor(log, gnomeWorkspaceSettings, fixedWorkspaceCount = FIXED_WORKSPACE_COUNT) {
         this._log = log;
@@ -8,6 +12,10 @@ export class WorkspacePolicy {
         this._tempWorkspaces = new Set();
     }
 
+    /**
+     * Periodically ensures Mutter guarantees the baseline static rooms exist.
+     * Trims metadata pointers to workspaces that naturally died.
+     */
     ensureFixedWorkspaces() {
         this._gnome.ensureWorkspaceCount(this._fixedWorkspaceCount);
         this._pruneTempWorkspaces();
@@ -17,6 +25,11 @@ export class WorkspacePolicy {
         return this._fixedWorkspaceCount;
     }
 
+    /**
+     * Determines whether the evaluated native index resides inside the protected root boundary.
+     * @param {Meta.Workspace} workspace - Dimension evaluation target.
+     * @returns {boolean} True if the workspace is permanent.
+     */
     isFixedWorkspace(workspace) {
         if (!workspace)
             return false;
@@ -25,6 +38,11 @@ export class WorkspacePolicy {
         return index >= 0 && index < this._fixedWorkspaceCount;
     }
 
+    /**
+     * Evaluates if the given workspace is explicitly tagged as a temporary tracking dimension.
+     * @param {Meta.Workspace} workspace - Virtual environment array.
+     * @returns {boolean} True if the system spawned it for Roundtrip isolation.
+     */
     isTempWorkspace(workspace) {
         if (!workspace)
             return false;
@@ -33,6 +51,10 @@ export class WorkspacePolicy {
         return this._tempWorkspaces.has(workspace);
     }
 
+    /**
+     * Memorizes an ephemeral dimensional ID logic preventing accidental early garbage collection.
+     * @param {Meta.Workspace} workspace - Memory footprint target.
+     */
     registerTempWorkspace(workspace) {
         if (!workspace || this.isFixedWorkspace(workspace))
             return;
@@ -41,6 +63,10 @@ export class WorkspacePolicy {
         this._log(`[policy] temp registrado ws:${workspace.index()}`);
     }
 
+    /**
+     * Purges an ephemeral workspace from the internal retention log.
+     * @param {Meta.Workspace} workspace - Footprint to delete.
+     */
     unregisterTempWorkspace(workspace) {
         if (!workspace)
             return;
@@ -48,6 +74,10 @@ export class WorkspacePolicy {
         this._tempWorkspaces.delete(workspace);
     }
 
+    /**
+     * Resolves the primary fallback destination. Usually Workspace index 0.
+     * @returns {Meta.Workspace} Primary root environment.
+     */
     getPrimaryFixedWorkspace() {
         this.ensureFixedWorkspaces();
         return global.workspace_manager.get_workspace_by_index(0);
@@ -61,6 +91,12 @@ export class WorkspacePolicy {
         return this.getPrimaryFixedWorkspace();
     }
 
+    /**
+     * Injects a raw unpopulated namespace into Mutter logically above the final current dimension.
+     * Registers the environment dynamically allowing applications to disperse globally.
+     * @param {Meta.Workspace} originWorkspace - The root workspace we're dispersing away from.
+     * @returns {Meta.Workspace} Fresh ephemeral dimension.
+     */
     allocateTempWorkspace(originWorkspace = null) {
         this.ensureFixedWorkspaces();
 
@@ -78,11 +114,18 @@ export class WorkspacePolicy {
         return ws;
     }
 
+    /**
+     * Aligns the strict application bounds with current GNOME Mutter counts preventing UI desync.
+     */
     syncConfiguredWorkspaceCount() {
         this._pruneTempWorkspaces();
         this._gnome.syncConfiguredCountToActual(this._fixedWorkspaceCount);
     }
 
+    /**
+     * Clears internal Set mappings if GNOME physically killed the Workspace via a manual close.
+     * @private
+     */
     _pruneTempWorkspaces() {
         const wm = global.workspace_manager;
         const alive = new Set();

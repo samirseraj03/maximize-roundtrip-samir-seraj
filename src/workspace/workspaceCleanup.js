@@ -1,5 +1,12 @@
 import { isInterestingWindow } from '../windows/windowState.js';
 
+/**
+ * Garbage collection logic examining a specific ephemeral workspace for vacancy.
+ * Destroys the virtual dimension gracefully if no remaining tracked applications populate it.
+ * @param {Object} policy - Workspace environment rules.
+ * @param {Meta.Workspace} workspace - Targeted GNOME virtual room.
+ * @param {function} log - Debugging output.
+ */
 export function cleanupWorkspace(policy, workspace, log) {
     if (!workspace)
         return;
@@ -46,6 +53,12 @@ export function cleanupWorkspace(policy, workspace, log) {
     }
 }
 
+/**
+ * Scans the native Mutter configuration to ensure the target workspace pointer is not a ghost object.
+ * @param {Meta.Workspace} workspace - Virtual array object.
+ * @returns {boolean} True if the workspace still mathematically exists within the compositor.
+ * @private
+ */
 function _workspaceExists(workspace) {
     const wm = global.workspace_manager;
 

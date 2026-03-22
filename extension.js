@@ -19,7 +19,15 @@ import {
 } from './src/workspace/workspaceManager.js';
 import { onMonitorsChanged } from './src/monitors/monitorManager.js';
 
+/**
+ * The root entrypoint for the Maximize Roundtrip extension spanning the GNOME lifecycle.
+ * Instantiated natively by GNOME Shell when parsing metadata.json configurations.
+ */
 export default class MaximizeRoundtripExtension extends Extension {
+    /**
+     * Fired by Mutter when the user flips the toggle to activate the extension.
+     * Hooks immediately into runtime and defers UI generation to circumvent Wayland graphical initialization races.
+     */
     enable() {
         this._log = createLogger(this.metadata.uuid);
         this._runtime = createRuntimeState();
@@ -45,6 +53,11 @@ export default class MaximizeRoundtripExtension extends Extension {
         this._log(`[ext] arranque diferido ${STARTUP_GRACE_MS}ms`);
     }
 
+    /**
+     * Delayed secondary startup phase triggered roughly ~1.5 seconds post-enable. 
+     * Registers Alt+Tab injectors and mounts visual observers without breaking initial OS load times.
+     * @private
+     */
     _finishEnable() {
         if (!this._runtime || this._runtime.ready)
             return;
@@ -114,6 +127,10 @@ export default class MaximizeRoundtripExtension extends Extension {
         this._log('[ext] activada');
     }
 
+    /**
+     * Core lifecycle hook triggered when the user turns the extension off or crashes out of the Session.
+     * Flushes all active observers, UI instances, and cleanly rolls back configurations safely.
+     */
     disable() {
         if (!this._runtime)
             return;

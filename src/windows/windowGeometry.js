@@ -8,6 +8,14 @@ import {
 
 import { isRoundtripState } from './windowState.js';
 
+/**
+ * Evaluates the safest set of physical coordinates (x, y, width, height) a window should
+ * revert to based on historical registry values or native geometric safety bounds.
+ * @param {Meta.Window} win - The inspected GNOME OS window.
+ * @param {Object} state - Information subset tied to the tracked registry.
+ * @param {number} monitorIndex - Target hardware monitor's index constraint.
+ * @returns {Object} An object housing explicit dimensional floats `{ x, y, width, height }`.
+ */
 export function computeSavedGeometry(win, state, monitorIndex) {
     if (state.lastNormalGeometry)
         return { ...state.lastNormalGeometry };
@@ -29,6 +37,14 @@ export function computeSavedGeometry(win, state, monitorIndex) {
     return centeredGeometry(win, monitorIndex);
 }
 
+/**
+ * Initiates an asynchronous countdown requesting GNOME to reposition the Meta.Window back into its
+ * native space dimensions after transitioning out of Fullscreen behavior.
+ * @param {Meta.Window} win - The target window.
+ * @param {Object} state - Vault data mapping coordinates.
+ * @param {number} monitorIndex - Restricts geometry to bounds of physical display.
+ * @param {function} log - Debug console interface.
+ */
 export function scheduleSavedGeometryRestore(win, state, monitorIndex, log) {
     if (!state.savedGeometry)
         return;
@@ -38,6 +54,13 @@ export function scheduleSavedGeometryRestore(win, state, monitorIndex, log) {
     _scheduleGeometryRestore(win, state, geo, monitorIndex, log, '[ws] geometría restaurada', () => { });
 }
 
+/**
+ * Re-applies geometric changes delayed artificially due to "minimize" mutations,
+ * making sure windows bouncing out of minimum states revert successfully to their native areas.
+ * @param {Meta.Window} win - Target window.
+ * @param {Object} state - Window track reference.
+ * @param {function} log - Debug interface.
+ */
 export function schedulePendingGeometryRestore(win, state, log) {
     if (!state.pendingRestoreGeometry)
         return;
@@ -60,6 +83,15 @@ export function schedulePendingGeometryRestore(win, state, log) {
     );
 }
 
+/**
+ * Computes safety bounding boxes protecting actors from bleeding outside hardware boundaries.
+ * Enforces strict X/Y and Width/Height normalization against logical Mutter screens.
+ * @param {Meta.Window} win - Tracked application.
+ * @param {Object} geo - The floating coordinates to apply.
+ * @param {number} monitorIndex - Target monitor integer identifier.
+ * @param {function} log - Debug stream.
+ * @returns {Object} The securely clamped geometry subset.
+ */
 export function clampToMonitor(win, geo, monitorIndex, log) {
     try {
         const workArea = win.get_work_area_for_monitor(monitorIndex);
@@ -93,6 +125,13 @@ export function clampToMonitor(win, geo, monitorIndex, log) {
     }
 }
 
+/**
+ * Defaults to absolute center alignments on the defined logical monitor fallback space.
+ * Applies generic sizes if no historical tracking was performed for a corrupted window.
+ * @param {Meta.Window} win - The native window pointer.
+ * @param {number} monitorIndex - Targeted monitor index.
+ * @returns {Object} Geometrically centered configuration subset.
+ */
 export function centeredGeometry(win, monitorIndex) {
     try {
         const workArea = win.get_work_area_for_monitor(monitorIndex);

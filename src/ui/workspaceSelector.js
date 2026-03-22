@@ -9,6 +9,10 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { SELECTOR_SHOW_DELAY_MS } from '../core/constants.js';
 import { isInterestingWindow } from '../windows/windowState.js';
 
+/**
+ * The sophisticated interactive Head-Up Display acting as the replacement for Mutter's Alt+Tab.
+ * Implements a non-modal asynchronous capture event proxy preventing Wayland freezes.
+ */
 export class WorkspaceSelector {
     constructor(settings, log) {
         this._settings = settings;
@@ -31,6 +35,10 @@ export class WorkspaceSelector {
         this._hint = null;
     }
 
+    /**
+     * Initializes the MRU tracking and mounts the native `forward` and `backward` window bindings.
+     * Starts the global `captured-event` stage interception.
+     */
     enable() {
         this._workspaceSwitchedId = global.workspace_manager.connect(
             'workspace-switched',
@@ -62,6 +70,9 @@ export class WorkspaceSelector {
         this._log('[kbd] WorkspaceSelector híbrido (no-modal) activado');
     }
 
+    /**
+     * Unmounts all keybindings and stage proxies to completely detach from GNOME.
+     */
     disable() {
         if (this._capturedEventId) {
             try { global.stage.disconnect(this._capturedEventId); } catch (_) { }
@@ -80,6 +91,11 @@ export class WorkspaceSelector {
         this._log('[kbd] WorkspaceSelector desactivado');
     }
 
+    /**
+     * Internal callback shifting the MRU (Most Recently Used) chronological array
+     * whenever native GNOME Shell jumps across workspaces.
+     * @private
+     */
     _onWorkspaceSwitched() {
         const activeIdx = this._getActiveWorkspaceIndex();
         this._mruWorkspaces = [
@@ -88,6 +104,11 @@ export class WorkspaceSelector {
         ];
     }
 
+    /**
+     * Computes and returns the chronological workspace index list based on visit history.
+     * @returns {number[]} Array of workspace numeric indices ordered from newest to oldest.
+     * @private
+     */
     _getMruList() {
         const count = this._getWorkspaceCount();
         const validMru = this._mruWorkspaces.filter(idx => idx < count);
@@ -99,6 +120,11 @@ export class WorkspaceSelector {
         return validMru;
     }
 
+    /**
+     * Triggers the UI initialization sequence. Invoked precisely when `Alt+Tab` is detected natively.
+     * @param {boolean} backward - Whether `Shift` was held down during activation.
+     * @private
+     */
     _trigger(backward) {
         this._altHeld = true;
         this._cancelQueuedShow();
@@ -129,6 +155,11 @@ export class WorkspaceSelector {
         this._startUi(true); // Con fade (fade delay)
     }
 
+    /**
+     * Enqueues a short delay before initializing the visual UI rendering to prevent
+     * flickering on rapid chronological swaps.
+     * @private
+     */
     _queueShow() {
         this._cancelQueuedShow();
         this._showPreTimeoutId = GLib.timeout_add(
@@ -149,6 +180,10 @@ export class WorkspaceSelector {
         }
     }
 
+    /**
+     * Immediately summons the HUD logic onto the screen bypassing UI delays.
+     * @private
+     */
     _show() {
         if (this._active) return;
         this._active = true;
@@ -159,6 +194,11 @@ export class WorkspaceSelector {
         this._startUi(false); // Ya esperamos, se muestra instantáneo
     }
 
+    /**
+     * Assembles the DOM box layout and polling safety guards.
+     * @param {boolean} fade - Whether to animate the UI's opacity asynchronously.
+     * @private
+     */
     _startUi(fade) {
         this._buildUi();
         this._render();
@@ -187,6 +227,12 @@ export class WorkspaceSelector {
         }
     }
 
+    /**
+     * Crucial `captured-event` proxy hook inspecting raw Wayland inputs mid-flight.
+     * @param {Clutter.Event} event - Raw input stream segment.
+     * @returns {number} Clutter propagation directive.
+     * @private
+     */
     _onCapturedEvent(event) {
         const type = event.type();
         if (type === Clutter.EventType.KEY_PRESS) {
@@ -199,6 +245,12 @@ export class WorkspaceSelector {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    /**
+     * Sorts explicit key presses while the interface is hovering or queued to hover.
+     * @param {Clutter.Event} event - The specific KeyPress instance.
+     * @returns {number} Clutter propagation directive.
+     * @private
+     */
     _onKeyPress(event) {
         const symbol = event.get_key_symbol();
         
@@ -247,6 +299,13 @@ export class WorkspaceSelector {
         return Clutter.EVENT_STOP;
     }
 
+    /**
+     * Evaluates `KeyRelease` instances globally to confirm if the `Alt` or `Super` 
+     * modifier was let go, determining intentional workspace commitments.
+     * @param {Clutter.Event} event - The specific KeyRelease instance.
+     * @returns {number} Clutter propagation directive.
+     * @private
+     */
     _onKeyRelease(event) {
         const symbol = event.get_key_symbol();
         const isAlt = symbol === Clutter.KEY_Alt_L || symbol === Clutter.KEY_Alt_R || symbol === Clutter.KEY_Meta_L || symbol === Clutter.KEY_Super_L;
@@ -271,6 +330,10 @@ export class WorkspaceSelector {
         return Clutter.EVENT_STOP;
     }
 
+    /**
+     * Generates and styles the floating Clutter overlay wrapping the workspaces grid.
+     * @private
+     */
     _buildUi() {
         this._overlay = new St.Widget({
             x_expand: true,
@@ -324,6 +387,11 @@ export class WorkspaceSelector {
         global.stage.set_key_focus(this._overlay);
     }
 
+    /**
+     * Repaints the interior array of `St.BoxLayout` items including text labels and application miniature icons.
+     * Executes rapidly upon cyclic shifts.
+     * @private
+     */
     _render() {
         if (!this._row) return;
 
@@ -380,6 +448,10 @@ export class WorkspaceSelector {
         this._title.text = `Workspace Activo: ${this._selectedIndex + 1}`;
     }
 
+    /**
+     * Steps forward in the MRU chronology queue.
+     * @private
+     */
     _selectNextMru() {
         const mru = this._getMruList();
         if (mru.length === 0) return;
@@ -414,6 +486,10 @@ export class WorkspaceSelector {
         }
     }
 
+    /**
+     * Commits the navigation decision and instantly forces GNOME to fly to the highlighted virtual room index.
+     * @private
+     */
     _commit() {
         const ws = global.workspace_manager.get_workspace_by_index(this._selectedIndex);
         if (ws) {
@@ -423,6 +499,10 @@ export class WorkspaceSelector {
         this._finish();
     }
 
+    /**
+     * Securely destroys all actors, clears timeout polling streams, and resets state locks without using popModal.
+     * @private
+     */
     _finish() {
         if (!this._active) return;
         this._active = false;

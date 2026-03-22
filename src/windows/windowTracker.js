@@ -18,6 +18,15 @@ import {
     cleanupAfterRestore,
 } from '../workspace/workspaceManager.js';
 
+/**
+ * Establishes intensive GNOME Mutter signal listeners strictly tied to a single Meta.Window.
+ * Evaluates in real-time whether the incoming window requires entry into the Roundtrip lifecycle.
+ * @param {Meta.Window} win - The native GUI window instance.
+ * @param {Map} windowSignals - The runtime mapping storing signal connection IDs.
+ * @param {Map} states - State registry vault.
+ * @param {Object} policy - Injection-ready context policies (usually referring to Workspace limits).
+ * @param {function} log - Debugging tool.
+ */
 export function trackWindow(win, windowSignals, states, policy, log) {
     if (!win) return;
     if (windowSignals.has(win)) return;
@@ -40,6 +49,13 @@ export function trackWindow(win, windowSignals, states, policy, log) {
     state.lastRoundtrip = isRoundtripState(win);
 }
 
+/**
+ * Sever all signal connections to GNOME native events, clears polling timeouts,
+ * and purges the window's presence from the tracking arrays.
+ * @param {Meta.Window} win - Subject window.
+ * @param {Map} windowSignals - Signals registry.
+ * @param {Map} states - States registry.
+ */
 export function disconnectWindow(win, windowSignals, states) {
     const ids = windowSignals.get(win) ?? [];
     for (const id of ids) {
@@ -62,11 +78,21 @@ export function disconnectWindow(win, windowSignals, states) {
     states.delete(win);
 }
 
+/**
+ * Callback firing whenever window rect geometry mutations occur. Caches the coordinates 
+ * for safe return trips if the window isn't currently mid-flight.
+ * @private
+ */
 function onGeometryChanged(win, states) {
     const state = getState(states, win);
     rememberNormalGeometry(win, state);
 }
 
+/**
+ * Anti-flicker debouncer routing rapid OS-level `size-changed` assertions
+ * into a solid evaluation of whether a Roundtrip is necessary.
+ * @private
+ */
 function queueEvaluate(win, states, windowSignals, policy, log) {
     const state = getState(states, win);
 
@@ -80,6 +106,11 @@ function queueEvaluate(win, states, windowSignals, policy, log) {
     });
 }
 
+/**
+ * Logic core dictating the actions generated due to a window reaching or leaving the bounds
+ * of a Maximized/Fullscreen aspect ratio. Orchestrates `sendToTempWorkspace` or `restoreToOrigin`.
+ * @private
+ */
 function evaluateWindow(win, states, windowSignals, policy, log) {
     if (!windowSignals.has(win))
         return;
@@ -110,6 +141,11 @@ function evaluateWindow(win, states, windowSignals, policy, log) {
     }
 }
 
+/**
+ * Complex controller regulating how the window should behave if the user hits the "Minimize" command.
+ * Pauses standard geometry evaluations and triggers specific `restoreToOriginMinimized` behaviors.
+ * @private
+ */
 function onMinimizedChanged(win, states, windowSignals, policy, log) {
     const state = getState(states, win);
 
@@ -154,6 +190,11 @@ function onMinimizedChanged(win, states, windowSignals, policy, log) {
     schedulePendingGeometryRestore(win, state, log);
 }
 
+/**
+ * Resolves logic when the user forcefully overrides the default virtual room by dragging
+ * a window onto another Workspace manually, canceling the automatized Roundtrip ecosystem.
+ * @private
+ */
 function onWorkspaceChanged(win, states, log) {
     const state = states.get(win);
     if (!state)
@@ -182,6 +223,12 @@ function onWorkspaceChanged(win, states, log) {
     }
 }
 
+/**
+ * Final execution path ran when a tracked window decides to close (unmanage).
+ * If the application closes while sitting alone in an ephemeral workspace, it commands
+ * an immediate return to the origin index to prevent the user from being stranded.
+ * @private
+ */
 function onUnmanaged(win, windowSignals, states, policy, log) {
     const state = states.get(win);
 
