@@ -1,0 +1,14 @@
+{
+  "uuid": "maximize-roundtrip@samir-seraj",
+  "name": "Maximize Roundtrip",
+  "description": "macOS-style workspace management: maximizing or fullscreening a window moves it to a new dedicated workspace on the right, and restoring or closing it brings you back to the original workspace automatically. Multi-monitor safe.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49"
+  ],
+  "url": "https://github.com/samir-seraj/maximize-roundtrip",
+  "settings-schema": "org.gnome.shell.extensions.maximize-roundtrip"
+}

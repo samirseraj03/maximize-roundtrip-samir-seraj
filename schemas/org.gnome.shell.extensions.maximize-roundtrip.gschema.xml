@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.maximize-roundtrip"
+          path="/org/gnome/shell/extensions/maximize-roundtrip/">
+
+    <key name="next-window" type="as">
+      <default>['&lt;Alt&gt;Tab']</default>
+      <summary>Siguiente ventana global</summary>
+      <description>Atajo gestionado por la extensión para cambiar a la siguiente ventana entre todos los workspaces.</description>
+    </key>
+
+    <key name="prev-window" type="as">
+      <default>['&lt;Shift&gt;&lt;Alt&gt;Tab']</default>
+      <summary>Ventana anterior global</summary>
+      <description>Atajo gestionado por la extensión para cambiar a la ventana anterior entre todos los workspaces.</description>
+    </key>
+
+    <key name="show-minimized-indicators" type="b">
+      <default>true</default>
+      <summary>Mostrar indicadores de minimizado en W0</summary>
+      <description>Muestra un panel a la izquierda en el workspace principal con las aplicaciones minimizadas.</description>
+    </key>
+
+  </schema>
+</schemalist>
