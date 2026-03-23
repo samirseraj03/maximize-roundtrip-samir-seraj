@@ -275,6 +275,12 @@ export function redirectNewWindowToFixedWorkspace(win, states, policy, log) {
             if (!win || win.is_on_all_workspaces())
                 return GLib.SOURCE_REMOVE;
 
+            if (!isInterestingWindow(win))
+                return GLib.SOURCE_REMOVE;
+
+            if (win.get_transient_for() != null)
+                return GLib.SOURCE_REMOVE;
+
             const winWs = win.get_workspace();
             if (!winWs || !policy.isTempWorkspace(winWs))
                 return GLib.SOURCE_REMOVE;
